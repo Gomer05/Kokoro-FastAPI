@@ -4,11 +4,11 @@
 
 ## Docker Compose
 
-Compose files are in `docker/cpu`, `docker/gpu`, `docker/rocm`, and [`docker/vulkan`](vulkan.md). Run `docker compose up` from inside one.
+Compose files are in `docker/cpu`, `docker/gpu`, and `docker/rocm`. Run `docker compose up` from inside one. For the two-container Vulkan setup, follow the [Vulkan Compose guide](vulkan.md#docker-compose).
 
 ### image vs build
 
-`build:` is active, `image:` is commented out:
+The [Vulkan Compose file](vulkan.md#docker-compose) uses both `build:` and `image:` to tag its local builds. For the published CPU, CUDA, and ROCm images, the Compose files distinguish building locally from pulling a release:
 
 ```yaml
 services:
@@ -72,6 +72,8 @@ env_file:
 `required: false` so a fresh clone still starts without one.
 
 `environment:` beats `env_file`. `PYTHONPATH`, `DOWNLOAD_MODEL`, `API_LOG_LEVEL`, and `USE_GPU` (GPU/ROCm) are pinned there, so setting those in `.env` does nothing. Edit the compose file instead.
+
+The Vulkan stack fixes its internal API port at `8880`. Use `KOKORO_HOST_PORT` and `KOKORO_BIND_ADDRESS` to change where Docker publishes it on the host.
 
 Names are the field names from `api/src/core/config.py`, uppercased. Unrecognized keys in `.env` are ignored. Three rows below are process-only: read outside the settings object, so they work as env vars but not from `.env`.
 

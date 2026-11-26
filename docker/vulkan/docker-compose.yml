@@ -1,37 +1,76 @@
 name: kokoro-fastapi-vulkan
+
+x-build-labels: &build-labels
+  org.opencontainers.image.source: https://github.com/remsky/Kokoro-FastAPI
+  org.opencontainers.image.url: https://github.com/remsky/Kokoro-FastAPI
+  org.opencontainers.image.version: "${VERSION:-dev}"
+  org.opencontainers.image.revision: "${REVISION:-}"
+  org.opencontainers.image.created: "${CREATED:-}"
+
+x-runtime: &runtime
+  platform: linux/amd64
+  pull_policy: never
+  restart: unless-stopped
+  stop_grace_period: 30s
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+  logging:
+    driver: local
+
 services:
   kokoro-tts:
+    <<: *runtime
+    image: kokoro-fastapi-cpu:${IMAGE_TAG:-vulkan-dev}
     build:
       context: ../..
       dockerfile: docker/cpu/Dockerfile.optimized
+      labels:
+        <<: *build-labels
+        org.opencontainers.image.title: Kokoro-FastAPI (CPU)
+        org.opencontainers.image.description: Kokoro TTS API with PyTorch CPU and optional Vulkan offload.
+        org.opencontainers.image.licenses: Apache-2.0
     ports:
-      - "8880:8880"
+      - "${KOKORO_BIND_ADDRESS:-127.0.0.1}:${KOKORO_HOST_PORT:-8880}:8880"
     env_file:
       - path: ../../.env
         required: false
     environment:
+      HOST: 0.0.0.0
+      PORT: "8880"
       USE_GPU: "false"
       VULKAN_TTS_URL: http://vulkan-tts:8080
     depends_on:
       vulkan-tts:
         condition: service_healthy
+        restart: true
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "--max-time", "2", "http://127.0.0.1:8880/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 6
+      start_period: 30s
     networks:
       - default
       - sidecar
 
   vulkan-tts:
-    build: .
-    platform: linux/amd64
+    <<: *runtime
+    image: kokoro-fastapi-vulkan:${IMAGE_TAG:-vulkan-dev}
+    build:
+      context: .
+      labels:
+        <<: *build-labels
+        org.opencontainers.image.title: Kokoro-FastAPI (Vulkan sidecar)
+        org.opencontainers.image.description: llama.cpp Vulkan inference sidecar for Kokoro-FastAPI (Linux amd64).
+        org.opencontainers.image.licenses: Apache-2.0 AND MIT
     devices:
       - "${VULKAN_RENDER_DEVICE:-/dev/dri/renderD128}:${VULKAN_RENDER_DEVICE:-/dev/dri/renderD128}:rw"
     group_add:
       - "${VULKAN_RENDER_GID:?Set VULKAN_RENDER_GID to the numeric GID of the host render node}"
-    cap_drop:
-      - ALL
-    security_opt:
-      - no-new-privileges:true
     healthcheck:
-      test: ["CMD", "curl", "--fail", "--silent", "--max-time", "2", "http://127.0.0.1:8080/health"]
+      test: ["CMD", "curl", "-fsS", "--max-time", "2", "http://127.0.0.1:8080/health"]
       interval: 5s
       timeout: 3s
       retries: 6

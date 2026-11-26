@@ -9,30 +9,50 @@ Kokoro-FastAPI can send eligible speech requests to a separate llama.cpp Vulkan 
 
 ## Docker Compose
 
-Use a Linux x86-64 host with Docker Compose v2.24+ and a working GPU render node. The sidecar uses Mesa's Vulkan drivers and was verified on an AMD Radeon RX 580 (RADV). This setup does not cover proprietary NVIDIA drivers.
+Use a Linux x86-64 host with Docker Compose v2.24+ and a working GPU render node. The Compose stack passed the live API integration suite on an AMD Radeon RX 580 with Mesa RADV. This setup does not cover proprietary NVIDIA drivers.
 
-From the repository root, choose the render node for your GPU (see `ls -l /dev/dri/by-path`) and get the group ID from that node:
+### Run the local images
+
+From the repository root, choose your GPU's render node (`ls -l /dev/dri/by-path`) and read its numeric group ID. Set `IMAGE_TAG` to the tag used by both images. Compose won't pull replacement images from a registry.
 
 ```bash
 export VULKAN_RENDER_DEVICE=/dev/dri/renderD128
 export VULKAN_RENDER_GID="$(stat -c '%g' "$VULKAN_RENDER_DEVICE")"
-docker compose -f docker/vulkan/docker-compose.yml up --build
+export IMAGE_TAG="$(cat VERSION)-vulkan-dev"
+docker compose -f docker/vulkan/docker-compose.yml up -d --no-build --wait
+curl -fsS http://127.0.0.1:8880/health
 ```
 
-Compose builds the regular CPU API image from this checkout with `USE_GPU=false`. The sidecar runs as a non-root user with access to only the selected render node and its host group. It does not use `/dev/kfd` or privileged mode. The sidecar's HTTP port is not published; use Kokoro at `http://localhost:8880`.
-
-If the sidecar does not become healthy, check `docker compose -f docker/vulkan/docker-compose.yml logs vulkan-tts`. If it cannot find `Vulkan0`, check the render node, its group and permissions, and the host kernel driver. Software Vulkan (Lavapipe) is not a fallback.
-
-To check which GPU the sidecar sees and inspect its stock voices without publishing its port:
+The services use `kokoro-fastapi-cpu:${IMAGE_TAG}` and `kokoro-fastapi-vulkan:${IMAGE_TAG}`. If `IMAGE_TAG` is unset they use `vulkan-dev`. If the selected images don't exist, build them once:
 
 ```bash
-docker compose -f docker/vulkan/docker-compose.yml exec vulkan-tts \
-  ./llama/llama-server --list-devices
-docker compose -f docker/vulkan/docker-compose.yml exec vulkan-tts \
-  curl -fsS http://127.0.0.1:8080/props
+export VERSION="$(cat VERSION)"
+export REVISION="$(git rev-parse HEAD)"
+if [ -n "$(git status --porcelain)" ]; then export REVISION="${REVISION}-dirty"; fi
+export CREATED="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+docker compose -f docker/vulkan/docker-compose.yml build
 ```
 
-Use `docker compose -f docker/vulkan/docker-compose.yml down` to stop both services. To run CPU-only, start the regular CPU deployment without `VULKAN_TTS_URL` (including any value in the repository `.env`).
+### Network and permissions
+
+- The API listens on host loopback by default (`127.0.0.1:8880`). Set `KOKORO_HOST_PORT` to use another port. Prefer a reverse proxy with TLS and `API_KEYS` before exposing the API beyond the host. Set `KOKORO_BIND_ADDRESS` only if a different host interface is needed. For application settings such as `API_KEYS`, use the optional repository-root `.env`.
+- The sidecar stays on an internal Docker network with no published port. Both services use the non-root users from their images, drop Linux capabilities, and cannot gain new privileges. Only the sidecar gets the selected render node and its group. It needs neither `/dev/kfd` nor privileged mode.
+- The API starts after the sidecar is healthy. `up --wait` also waits for the API to finish startup. Both services restart on exit unless stopped and use Docker's rotating `local` log driver. A failing health check alone does not restart a running container.
+
+### Check and stop the stack
+
+Keep the same environment variables for subsequent Compose commands. Check service health and follow logs from the repository root:
+
+```bash
+docker compose -f docker/vulkan/docker-compose.yml ps
+docker compose -f docker/vulkan/docker-compose.yml logs --tail=100
+docker compose -f docker/vulkan/docker-compose.yml exec vulkan-tts \
+  ./llama/llama-server --list-devices
+```
+
+If the sidecar cannot find `Vulkan0`, check the render node, its group and permissions, and the host kernel driver. Software Vulkan (Lavapipe) is not a fallback. The API's `/health` reports API readiness, not GPU inference; [generate a test WAV](#test-speech) to check the full path.
+
+Use `docker compose -f docker/vulkan/docker-compose.yml down` to stop and remove the containers without removing their images. For CPU-only serving, use the regular CPU deployment without `VULKAN_TTS_URL` (including any value in the repository `.env`).
 
 ## Run the sidecar natively
 
@@ -65,6 +85,8 @@ Keep `llama-server` on loopback or a private network. Its `GET /props` and `POST
 curl -fsS http://127.0.0.1:8080/props
 VULKAN_TTS_URL=http://127.0.0.1:8080 ./start-cpu.sh
 ```
+
+## Test speech
 
 Test either deployment through Kokoro, not the sidecar:
 
