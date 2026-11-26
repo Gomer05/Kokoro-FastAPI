@@ -7,6 +7,7 @@ Per-PR attribution and contributor credits are published automatically on the co
 ## [Unreleased]
 ### Added
 - Brazilian Portuguese text normalization for numbers, common currencies, times, and units (#392, #598)
+- Experimental [Linux Vulkan acceleration](docs/vulkan.md) for stock Kokoro voices. Mixed or custom voices and word timestamps still use the existing PyTorch backend.
 
 ### Fixed
 - A URL that starts with `HTTPS://` or `Https://` is read as "https", not "http"

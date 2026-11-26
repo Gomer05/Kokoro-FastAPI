@@ -6,7 +6,7 @@ import os
 import re
 import tempfile
 import time
-from contextlib import suppress
+from contextlib import aclosing, suppress
 from typing import AsyncGenerator, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -588,8 +588,6 @@ class TTSService:
                 voice_name, voice_path = await self.get_voices_path(voice)
 
                 if isinstance(backend, KokoroV1):
-                    # For Kokoro V1, use generate_from_tokens with raw phonemes
-                    result = None
                     pipeline_lang_code = (
                         lang_code or settings.default_voice_code or voice[:1].lower()
                     )
@@ -597,27 +595,17 @@ class TTSService:
                         f"Using lang_code '{pipeline_lang_code}' for voice '{voice_name}' in phoneme pipeline"
                     )
 
-                    try:
-                        # Use backend's pipeline management
-                        for r in backend._get_pipeline(
-                            pipeline_lang_code
-                        ).generate_from_tokens(
-                            tokens=phonemes,  # Pass raw phonemes string
-                            voice=voice_path,
+                    async with aclosing(
+                        backend.generate_from_tokens(
+                            tokens=phonemes,
+                            voice=(voice_name, voice_path),
                             speed=speed,
-                        ):
-                            if r.audio is not None:
-                                result = r
-                                break
-                    except Exception as e:
-                        logger.error(f"Failed to generate from phonemes: {e}")
-                        raise RuntimeError(f"Phoneme generation failed: {e}")
-
-                    if result is None or result.audio is None:
-                        raise ValueError("No audio generated")
-
-                    processing_time = time.time() - start_time
-                    return result.audio.numpy(), processing_time
+                            lang_code=pipeline_lang_code,
+                        )
+                    ) as chunks:
+                        async for audio in chunks:
+                            return audio, time.time() - start_time
+                    raise ValueError("No audio generated")
                 else:
                     raise ValueError(
                         "Phoneme generation only supported with Kokoro V1 backend"

@@ -51,6 +51,7 @@ Dockerized FastAPI wrapper for [Kokoro-82M](https://huggingface.co/hexgrad/Kokor
 - Prebuilt multiplatform images
   - CPU and NVIDIA GPU (CUDA): linux/amd64 + linux/arm64
   - AMD GPU (ROCm, experimental): linux/amd64 only
+  - [Vulkan on Linux](docs/vulkan.md) (experimental): linux/amd64, including older AMD GPUs
 - Apple Silicon (MPS) supported when running directly via UV (no image)
 
 

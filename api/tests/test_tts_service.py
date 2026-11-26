@@ -392,9 +392,11 @@ async def test_generate_from_phonemes_uses_default_voice_code():
     model_manager = AsyncMock()
     model_manager.hold = MagicMock(return_value=noop_hold())
     backend = MagicMock(spec=KokoroV1)
-    backend._get_pipeline.return_value.generate_from_tokens.return_value = [
-        MagicMock(audio=torch.zeros(4))
-    ]
+
+    async def audio_chunks():
+        yield np.zeros(4, dtype=np.float32)
+
+    backend.generate_from_tokens.return_value = audio_chunks()
     model_manager.get_backend = MagicMock(return_value=backend)
 
     with (
@@ -411,7 +413,12 @@ async def test_generate_from_phonemes_uses_default_voice_code():
 
         await service.generate_from_phonemes("h@lˈO", "ursa")
 
-        backend._get_pipeline.assert_called_once_with("a")
+        backend.generate_from_tokens.assert_called_once_with(
+            tokens="h@lˈO",
+            voice=("ursa", "/path/to/ursa.pt"),
+            speed=1.0,
+            lang_code="a",
+        )
 
 
 async def _stubbed_service():

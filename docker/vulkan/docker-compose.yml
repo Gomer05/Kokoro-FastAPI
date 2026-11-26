@@ -1,0 +1,44 @@
+name: kokoro-fastapi-vulkan
+services:
+  kokoro-tts:
+    build:
+      context: ../..
+      dockerfile: docker/cpu/Dockerfile.optimized
+    ports:
+      - "8880:8880"
+    env_file:
+      - path: ../../.env
+        required: false
+    environment:
+      USE_GPU: "false"
+      VULKAN_TTS_URL: http://vulkan-tts:8080
+    depends_on:
+      vulkan-tts:
+        condition: service_healthy
+    networks:
+      - default
+      - sidecar
+
+  vulkan-tts:
+    build: .
+    platform: linux/amd64
+    devices:
+      - "${VULKAN_RENDER_DEVICE:-/dev/dri/renderD128}:${VULKAN_RENDER_DEVICE:-/dev/dri/renderD128}:rw"
+    group_add:
+      - "${VULKAN_RENDER_GID:?Set VULKAN_RENDER_GID to the numeric GID of the host render node}"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--max-time", "2", "http://127.0.0.1:8080/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 6
+      start_period: 30s
+    networks:
+      - sidecar
+
+networks:
+  sidecar:
+    internal: true

@@ -13,6 +13,7 @@ from ..core.config import settings
 from ..core.model_config import ModelConfig, model_config
 from .base import BaseModelBackend
 from .kokoro_v1 import KokoroV1
+from .kokoro_vulkan import KokoroVulkan
 
 
 class ModelBusyError(RuntimeError):
@@ -41,6 +42,8 @@ class ModelManager:
 
     def _determine_device(self) -> str:
         """Determine device based on settings."""
+        if settings.vulkan_tts_url:
+            return "vulkan"
         return "cuda" if settings.use_gpu else "cpu"
 
     async def initialize(self) -> None:
@@ -48,7 +51,10 @@ class ModelManager:
         try:
             self._device = self._determine_device()
             logger.info(f"Initializing Kokoro V1 on {self._device}")
-            self._backend = KokoroV1()
+            if settings.vulkan_tts_url:
+                self._backend = KokoroVulkan(settings.vulkan_tts_url)
+            else:
+                self._backend = KokoroV1()
 
         except Exception as e:
             raise RuntimeError(f"Failed to initialize Kokoro V1: {e}")
@@ -72,6 +78,9 @@ class ModelManager:
         try:
             # Initialize backend
             await self.initialize()
+            if isinstance(self._backend, KokoroVulkan):
+                # Torch-only requests can still reload after an unload if the sidecar goes down.
+                await self._backend.validate_sidecar()
 
             # Load model
             model_path = self._config.pytorch_kokoro_v1_file
@@ -95,7 +104,7 @@ class ModelManager:
             ms = int((time.perf_counter() - start) * 1000)
             logger.info(f"Warmup completed in {ms}ms")
 
-            return self._device, "kokoro_v1", len(voices)
+            return self._device, self.current_backend, len(voices)
         except FileNotFoundError:
             logger.error("""
 Model files not found! You need to download the Kokoro V1 model:
@@ -323,7 +332,7 @@ Model files not found! You need to download the Kokoro V1 model:
     @property
     def current_backend(self) -> str:
         """Get current backend type."""
-        return "kokoro_v1"
+        return "kokoro_vulkan" if settings.vulkan_tts_url else "kokoro_v1"
 
 
 async def get_manager(config: Optional[ModelConfig] = None) -> ModelManager:

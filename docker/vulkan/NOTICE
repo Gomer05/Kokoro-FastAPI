@@ -1,0 +1,6 @@
+llama.cpp b12494 is distributed under the MIT license in llama/LICENSE.
+Source: https://github.com/ggml-org/llama.cpp/tree/b12494
+
+Kokoro-82M GGUF weights are distributed under the Apache License 2.0.
+GGUF conversion: https://huggingface.co/ggml-org/Kokoro-82M-GGUF
+Original Kokoro-82M model: https://huggingface.co/hexgrad/Kokoro-82M

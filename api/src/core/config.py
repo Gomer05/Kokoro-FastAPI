@@ -31,10 +31,11 @@ class Settings(BaseSettings):
     default_voice_code: str | None = (
         None  # If set, overrides the first letter of voice name, though api call param still takes precedence
     )
-    use_gpu: bool = True  # Whether to use GPU acceleration if available
+    use_gpu: bool = True  # Whether PyTorch should use a GPU if available
     device_type: str | None = (
         None  # Will be auto-detected if None, can be "cuda", "mps", or "cpu"
     )
+    vulkan_tts_url: str | None = None  # Optional llama.cpp Kokoro sidecar
     enable_miopen: bool = False  # ROCm only: MIOpen compiles a kernel per unseen tensor shape, which negatively impacts performance as Kokoro hits it every request
     allow_local_voice_saving: bool = (
         False  # Whether to allow saving combined voices locally

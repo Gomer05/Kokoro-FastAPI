@@ -4,7 +4,7 @@
 
 ## Docker Compose
 
-Compose files are in `docker/cpu`, `docker/gpu`, `docker/rocm`. Run `docker compose up` from inside one.
+Compose files are in `docker/cpu`, `docker/gpu`, `docker/rocm`, and [`docker/vulkan`](vulkan.md). Run `docker compose up` from inside one.
 
 ### image vs build
 
@@ -93,8 +93,9 @@ Names are the field names from `api/src/core/config.py`, uppercased. Unrecognize
 
 | Variable | Default | |
 |---|---|---|
-| `USE_GPU` | `true` | Use GPU if one is available |
+| `USE_GPU` | `true` | Use a GPU for PyTorch if one is available |
 | `DEVICE_TYPE` | auto | Force `cuda`, `mps`, or `cpu` |
+| `VULKAN_TTS_URL` | unset | Enable the experimental [Vulkan sidecar](vulkan.md) for supported requests; `USE_GPU` and `DEVICE_TYPE` still select the PyTorch device for other requests |
 | `MODEL_DIR` | `/app/api/src/models` | Where model weights live, container path |
 | `VOICES_DIR` | `/app/api/src/voices/v1_0` | Where voice packs live, container path |
 | `MODEL_REPO_ID` | `hexgrad/Kokoro-82M` | Repo passed to Kokoro, picks the G2P version. Weights only load from `MODEL_DIR` |

@@ -129,6 +129,8 @@ async def lifespan(app: FastAPI):
         startup_msg += "\nUsing Apple Metal Performance Shaders (MPS)"
     elif device == "cuda":
         startup_msg += f"\nCUDA: {torch.cuda.is_available()}"
+    elif device == "vulkan":
+        startup_msg += "\nUsing the Vulkan sidecar for supported voices"
     else:
         startup_msg += "\nRunning on CPU"
     startup_msg += f"\n{voicepack_count} voice packs loaded"

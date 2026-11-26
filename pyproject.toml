@@ -6,7 +6,9 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     # Core dependencies
+    "anyio>=4,<5",
     "fastapi>=0.128.8",
+    "httpx==0.26.0",
     "starlette>=1.3.1",
     "uvicorn==0.54.0",
     "click>=8.0.0",
@@ -68,7 +70,6 @@ rocm = [
 test = [
     "pytest==9.0.3",
     "pytest-cov==6.0.0",
-    "httpx==0.26.0",
     "pytest-asyncio==1.3.0",
     "tomli>=2.0.1",
     "jinja2>=3.1.6",
